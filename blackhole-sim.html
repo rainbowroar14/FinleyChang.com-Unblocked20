@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Black Hole Simulation — Interstellar</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000000;
+      color: #eee;
+      font-family: 'Times New Roman', Times, serif;
+      cursor: text;
+      user-select: none;
+    }
+    body.bg-black { background: #000000; color: #eee; }
+    body.bg-stars { background: #02010a; color: #eee; }
+    body.bg-white { background: #f4f4f4; color: #222; }
+    body.bg-black #stars,
+    body.bg-white #stars { display: none; }
+    body.bg-stars #stars { display: block; }
+    body.bg-white #ui { color: #555; }
+    body.bg-white #ui label { color: #333; }
+    body.bg-white #ui .title { color: #222; }
+    body.bg-white .typed-letter { color: #223; }
+    body.bg-white #caret { background: #333; }
+    #stars {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      display: none;
+      background:
+        radial-gradient(1px 1px at 10% 20%, #fff 99%, transparent),
+        radial-gradient(1px 1px at 30% 60%, #cde 99%, transparent),
+        radial-gradient(1px 1px at 70% 30%, #fff 99%, transparent),
+        radial-gradient(1px 1px at 85% 75%, #aab 99%, transparent),
+        radial-gradient(1px 1px at 50% 10%, #fff 99%, transparent),
+        radial-gradient(1.5px 1.5px at 15% 80%, #fff 99%, transparent),
+        radial-gradient(1px 1px at 60% 50%, #dde 99%, transparent),
+        radial-gradient(1px 1px at 40% 40%, #fff 99%, transparent),
+        radial-gradient(1px 1px at 90% 15%, #ccd 99%, transparent),
+        radial-gradient(1px 1px at 5% 45%, #fff 99%, transparent),
+        radial-gradient(ellipse 80% 50% at 50% 50%, transparent 40%, #02010a 100%);
+      background-color: #02010a;
+      pointer-events: none;
+    }
+    #ui {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 230px;
+      z-index: 20;
+      box-sizing: border-box;
+      padding: 14px 14px 24px;
+      overflow-y: auto;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 12px;
+      color: #9aa3b2;
+      letter-spacing: 0.02em;
+      background: rgba(4, 6, 14, 0.82);
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: default;
+    }
+    body.bg-white #ui {
+      background: rgba(245, 245, 245, 0.92);
+      border-right-color: rgba(0, 0, 0, 0.12);
+    }
+    #ui .title {
+      color: #c5cdd8;
+      margin-bottom: 10px;
+      line-height: 1.35;
+    }
+    #ui label {
+      display: block;
+      margin-top: 7px;
+      cursor: pointer;
+      color: #c5cdd8;
+      line-height: 1.3;
+    }
+    #ui .row {
+      margin-top: 8px;
+      margin-bottom: 4px;
+    }
+    #ui .row label {
+      display: block;
+      margin-top: 4px;
+    }
+    #field {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+    #hole {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      pointer-events: none;
+      line-height: 1;
+    }
+    #dot {
+      color: #fff;
+      font-size: var(--dot, 28px);
+      font-weight: 900;
+      line-height: 1;
+      user-select: none;
+    }
+    body.bg-white #dot { color: #111; }
+    .typed-letter {
+      position: absolute;
+      z-index: 8;
+      font-size: 18px;
+      line-height: 1;
+      color: #d7e0ff;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+    .typed-letter.sucked { color: #c9a0ff; }
+    .letter-trail {
+      position: absolute;
+      z-index: 7;
+      line-height: 1;
+      color: #ff9944;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      opacity: 0.8;
+    }
+    .bh-debris {
+      position: absolute;
+      z-index: 12;
+      font-size: 14px;
+      font-weight: bold;
+      line-height: 1;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+    #links {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    #layer {
+      position: fixed;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+    }
+    #caret {
+      position: fixed;
+      width: 2px;
+      height: 18px;
+      background: #ffd7a0;
+      z-index: 9;
+      animation: blink 1s step-end infinite;
+      pointer-events: none;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="stars"></div>
+  <div id="ui">
+    <div class="title">Interstellar field — click, type; letters fall in after 2s.</div>
+    <div class="row">
+      Background:
+      <label><input type="radio" name="bg" value="black" /> Black</label>
+      <label><input type="radio" name="bg" value="stars" checked /> Black + stars</label>
+      <label><input type="radio" name="bg" value="white" /> White</label>
+    </div>
+    <label><input type="checkbox" id="trailToggle" /> Accretion trails (1–2s shrink)</label>
+    <label><input type="checkbox" id="linkToggle" /> Link parts (chain, color fade)</label>
+    <label><input type="checkbox" id="linkAllToggle" /> Link all to all (color fade)</label>
+    <label><input type="checkbox" id="linkPlanarToggle" /> Link all (no crossings)</label>
+    <label><input type="checkbox" id="linkNearToggle" /> Link 3 closest (color fade)</label>
+    <label><input type="checkbox" id="linkNear5Toggle" /> Link 5 closest (color fade)</label>
+    <label><input type="checkbox" id="linkFarToggle" /> Link 3 furthest (color fade)</label>
+    <label><input type="checkbox" id="linkFar1Toggle" /> Link 1 furthest (color fade)</label>
+    <label><input type="checkbox" id="linkRand3Toggle" /> Link 3 random (color fade)</label>
+    <label><input type="checkbox" id="linkRand1Toggle" /> Link 1 random (color fade)</label>
+    <label><input type="checkbox" id="linkDodgeToggle" /> Link dodge loops (never touch)</label>
+    <label><input type="checkbox" id="linkDodgeLinesToggle" /> Link dodge loops (lines dodge too)</label>
+    <label><input type="checkbox" id="pulseToggle" /> Pulse letters (½ ↔ 2×)</label>
+  </div>
+  <div id="field" tabindex="0"></div>
+  <canvas id="links"></canvas>
+  <div id="layer"></div>
+  <div id="hole" style="--dot:28px"><div id="dot">.</div></div>
+  <div id="caret"></div>
+  <script>
+    (function () {
+      var field = document.getElementById('field');
+      var holeEl = document.getElementById('hole');
+      var layer = document.getElementById('layer');
+      var linksCanvas = document.getElementById('links');
+      var linksCtx = linksCanvas.getContext('2d');
+      var caret = document.getElementById('caret');
+      var trailToggle = document.getElementById('trailToggle');
+      var linkToggle = document.getElementById('linkToggle');
+      var linkAllToggle = document.getElementById('linkAllToggle');
+      var linkPlanarToggle = document.getElementById('linkPlanarToggle');
+      var linkNearToggle = document.getElementById('linkNearToggle');
+      var linkNear5Toggle = document.getElementById('linkNear5Toggle');
+      var linkFarToggle = document.getElementById('linkFarToggle');
+      var linkFar1Toggle = document.getElementById('linkFar1Toggle');
+      var linkRand3Toggle = document.getElementById('linkRand3Toggle');
+      var linkRand1Toggle = document.getElementById('linkRand1Toggle');
+      var linkDodgeToggle = document.getElementById('linkDodgeToggle');
+      var linkDodgeLinesToggle = document.getElementById('linkDodgeLinesToggle');
+      var pulseToggle = document.getElementById('pulseToggle');
+      var caretX = window.innerWidth / 2 + 40;
+      var caretY = window.innerHeight / 2;
+      var randomLinkMap3 = [];
+      var randomLinkMap1 = [];
+      var randomLinkAcc = 0;
+
+      function sizeLinksCanvas() {
+        linksCanvas.width = window.innerWidth;
+        linksCanvas.height = window.innerHeight;
+      }
+      sizeLinksCanvas();
+
+      function linksOn() {
+        return linkToggle.checked;
+      }
+
+      function linksAllOn() {
+        return linkAllToggle.checked;
+      }
+
+      function linksPlanarOn() {
+        return linkPlanarToggle.checked;
+      }
+
+      function linksNearOn() {
+        return linkNearToggle.checked;
+      }
+
+      function linksNear5On() {
+        return linkNear5Toggle.checked;
+      }
+
+      function linksFarOn() {
+        return linkFarToggle.checked;
+      }
+
+      function linksFar1On() {
+        return linkFar1Toggle.checked;
+      }
+
+      function linksRand3On() {
+        return linkRand3Toggle.checked;
+      }
+
+      function linksRand1On() {
+        return linkRand1Toggle.checked;
+      }
+
+      function linksDodgeOn() {
+        return linkDodgeToggle.checked;
+      }
+
+      function linksDodgeLinesOn() {
+        return linkDodgeLinesToggle.checked;
+      }
+
+      function pulseOn() {
+        return pulseToggle.checked;
+      }
+
+      function anyLinksOn() {
+        return (
+          linksOn() ||
+          linksAllOn() ||
+          linksPlanarOn() ||
+          linksNearOn() ||
+          linksNear5On() ||
+          linksFarOn() ||
+          linksFar1On() ||
+          linksRand3On() ||
+          linksRand1On() ||
+          linksDodgeOn() ||
+          linksDodgeLinesOn()
+        );
+      }
+
+      function clearLinks() {
+        linksCtx.clearRect(0, 0, linksCanvas.width, linksCanvas.height);
+      }
+
+      function strokeLink(a, b, alpha, width) {
+        if (a.x == null || b.x == null) return;
+        var grad = linksCtx.createLinearGradient(a.x, a.y, b.x, b.y);
+        grad.addColorStop(0, a.color || '#ff7a18');
+        grad.addColorStop(1, b.color || '#ffd7a0');
+        linksCtx.strokeStyle = grad;
+        linksCtx.globalAlpha = alpha;
+        linksCtx.lineWidth = width;
+        linksCtx.beginPath();
+        linksCtx.moveTo(a.x, a.y);
+        linksCtx.lineTo(b.x, b.y);
+        linksCtx.stroke();
+      }
+
+      function pickRandomTargets(count) {
+        var n = debris.length;
+        var map = [];
+        if (n < 2 || count < 1) return map;
+        var kMax = Math.min(count, n - 1);
+        for (var i = 0; i < n; i++) {
+          var picks = [];
+          var guard = 0;
+          while (picks.length < kMax && guard < kMax * 20) {
+            guard++;
+            var j = (Math.random() * n) | 0;
+            if (j === i) continue;
+            if (picks.indexOf(j) !== -1) continue;
+            picks.push(j);
+          }
+          map[i] = picks;
+        }
+        return map;
+      }
+
+      function refreshRandomLinks() {
+        randomLinkMap3 = linksRand3On() ? pickRandomTargets(3) : [];
+        randomLinkMap1 = linksRand1On() ? pickRandomTargets(1) : [];
+      }
+
+      function drawRandomLinks(map, alpha, width) {
+        var drawn = {};
+        for (var i = 0; i < map.length; i++) {
+          var picks = map[i];
+          if (!picks) continue;
+          var a = debris[i];
+          if (!a || a.x == null) continue;
+          for (var p = 0; p < picks.length; p++) {
+            var j = picks[p];
+            if (j < 0 || j >= debris.length) continue;
+            var key = i < j ? i + ':' + j : j + ':' + i;
+            if (drawn[key]) continue;
+            drawn[key] = 1;
+            strokeLink(a, debris[j], alpha, width);
+          }
+        }
+      }
+
+      function drawKLinks(pickFurthest, count) {
+        var n = debris.length;
+        if (n < 2 || count < 1) return;
+        var kMax = Math.min(count, n - 1);
+        var drawn = {};
+        var alpha = pickFurthest ? 0.55 : 0.7;
+        var width = pickFurthest ? 1.15 : 1.35;
+        for (var i = 0; i < n; i++) {
+          var a = debris[i];
+          if (a.x == null) continue;
+          var best = [];
+          for (var j = 0; j < n; j++) {
+            if (i === j) continue;
+            var b = debris[j];
+            if (b.x == null) continue;
+            var dx = a.x - b.x;
+            var dy = a.y - b.y;
+            var dist2 = dx * dx + dy * dy;
+            if (best.length < kMax) {
+              best.push({ j: j, dist2: dist2 });
+              best.sort(function (u, v) {
+                return pickFurthest ? v.dist2 - u.dist2 : u.dist2 - v.dist2;
+              });
+            } else {
+              var worse = pickFurthest
+                ? dist2 > best[kMax - 1].dist2
+                : dist2 < best[kMax - 1].dist2;
+              if (worse) {
+                best[kMax - 1] = { j: j, dist2: dist2 };
+                best.sort(function (u, v) {
+                  return pickFurthest ? v.dist2 - u.dist2 : u.dist2 - v.dist2;
+                });
+              }
+            }
+          }
+          for (var k = 0; k < best.length; k++) {
+            var j2 = best[k].j;
+            var key = i < j2 ? i + ':' + j2 : j2 + ':' + i;
+            if (drawn[key]) continue;
+            drawn[key] = 1;
+            strokeLink(a, debris[j2], alpha, width);
+          }
+        }
+      }
+
+      function orient(ax, ay, bx, by, cx, cy) {
+        var v = (by - ay) * (cx - bx) - (bx - ax) * (cy - by);
+        if (v > 1e-9) return 1;
+        if (v < -1e-9) return -1;
+        return 0;
+      }
+
+      function segmentsCross(a, b, c, d) {
+        if (a === c || a === d || b === c || b === d) return false;
+        var ax = debris[a].x;
+        var ay = debris[a].y;
+        var bx = debris[b].x;
+        var by = debris[b].y;
+        var cx = debris[c].x;
+        var cy = debris[c].y;
+        var dx = debris[d].x;
+        var dy = debris[d].y;
+        var o1 = orient(ax, ay, bx, by, cx, cy);
+        var o2 = orient(ax, ay, bx, by, dx, dy);
+        var o3 = orient(cx, cy, dx, dy, ax, ay);
+        var o4 = orient(cx, cy, dx, dy, bx, by);
+        return o1 !== o2 && o3 !== o4;
+      }
+
+      function drawPlanarLinks() {
+        var n = debris.length;
+        if (n < 2) return;
+        var pairs = [];
+        for (var i = 0; i < n; i++) {
+          if (debris[i].x == null) continue;
+          for (var j = i + 1; j < n; j++) {
+            if (debris[j].x == null) continue;
+            var dx = debris[i].x - debris[j].x;
+            var dy = debris[i].y - debris[j].y;
+            pairs.push({ i: i, j: j, dist2: dx * dx + dy * dy });
+          }
+        }
+        pairs.sort(function (u, v) { return u.dist2 - v.dist2; });
+        var kept = [];
+        for (var p = 0; p < pairs.length; p++) {
+          var e = pairs[p];
+          var ok = true;
+          for (var k = 0; k < kept.length; k++) {
+            if (segmentsCross(e.i, e.j, kept[k].i, kept[k].j)) {
+              ok = false;
+              break;
+            }
+          }
+          if (ok) kept.push(e);
+        }
+        var alpha = Math.max(0.28, 0.7 / Math.sqrt(Math.max(1, kept.length / 8)));
+        for (var m = 0; m < kept.length; m++) {
+          strokeLink(debris[kept[m].i], debris[kept[m].j], alpha, 1.2);
+        }
+      }
+
+      function bodyRad() {
+        return 18;
+      }
+
+      function normAngle(a) {
+        while (a > Math.PI) a -= Math.PI * 2;
+        while (a < -Math.PI) a += Math.PI * 2;
+        return a;
+      }
+
+      function distToSeg(px, py, ax, ay, bx, by) {
+        var abx = bx - ax;
+        var aby = by - ay;
+        var len2 = abx * abx + aby * aby;
+        if (len2 < 1e-6) {
+          return { dist: Math.hypot(px - ax, py - ay), t: 0 };
+        }
+        var t = ((px - ax) * abx + (py - ay) * aby) / len2;
+        if (t < 0) t = 0;
+        else if (t > 1) t = 1;
+        var qx = ax + t * abx;
+        var qy = ay + t * aby;
+        return { dist: Math.hypot(px - qx, py - qy), t: t };
+      }
+
+      function pushClear(pt, ignoreA, ignoreB) {
+        var x = pt.x;
+        var y = pt.y;
+        var pad = bodyRad() + 4;
+        for (var iter = 0; iter < 4; iter++) {
+          for (var i = 0; i < debris.length; i++) {
+            if (i === ignoreA || i === ignoreB) continue;
+            var d = debris[i];
+            if (d.x == null) continue;
+            var dx = x - d.x;
+            var dy = y - d.y;
+            var dist = Math.hypot(dx, dy);
+            if (dist < pad && dist > 1e-4) {
+              var push = (pad - dist) / dist;
+              x += dx * push;
+              y += dy * push;
+            } else if (dist <= 1e-4) {
+              x += pad;
+            }
+          }
+        }
+        return { x: x, y: y };
+      }
+
+      function buildDodgePath(ai, bi) {
+        var A = debris[ai];
+        var B = debris[bi];
+        if (!A || !B || A.x == null || B.x == null) return null;
+        var ax = A.x;
+        var ay = A.y;
+        var bx = B.x;
+        var by = B.y;
+        var abx = bx - ax;
+        var aby = by - ay;
+        var len = Math.hypot(abx, aby) || 1;
+        var tx = abx / len;
+        var ty = aby / len;
+        var px = -ty;
+        var py = tx;
+        var need = bodyRad() + 10;
+        var obs = [];
+        for (var i = 0; i < debris.length; i++) {
+          if (i === ai || i === bi) continue;
+          var d = debris[i];
+          if (d.x == null) continue;
+          var hit = distToSeg(d.x, d.y, ax, ay, bx, by);
+          if (hit.dist < need && hit.t > 0.04 && hit.t < 0.96) {
+            var cross = abx * (d.y - ay) - aby * (d.x - ax);
+            obs.push({
+              i: i,
+              t: hit.t,
+              side: cross >= 0 ? -1 : 1,
+              r: need + (need - hit.dist) * 0.35
+            });
+          }
+        }
+        obs.sort(function (u, v) { return u.t - v.t; });
+
+        var points = [{ x: ax, y: ay }];
+        for (var o = 0; o < obs.length; o++) {
+          var info = obs[o];
+          var body = debris[info.i];
+          var last = points[points.length - 1];
+          var startAng = Math.atan2(last.y - body.y, last.x - body.x);
+          var endAng = Math.atan2(by - body.y, bx - body.x);
+          var delta = normAngle(endAng - startAng);
+          var side = info.side;
+          if (side > 0 && delta < 0) delta += Math.PI * 2;
+          if (side < 0 && delta > 0) delta -= Math.PI * 2;
+          if (Math.abs(delta) < Math.PI * 0.75) {
+            delta = side > 0 ? Math.PI * 0.95 : -Math.PI * 0.95;
+          }
+          if (Math.abs(delta) > Math.PI * 1.35) {
+            delta = side > 0 ? Math.PI * 1.15 : -Math.PI * 1.15;
+          }
+          var steps = 7;
+          var rr = info.r;
+          for (var s = 1; s <= steps; s++) {
+            var ang = startAng + delta * (s / steps);
+            var pt = pushClear(
+              {
+                x: body.x + Math.cos(ang) * rr,
+                y: body.y + Math.sin(ang) * rr
+              },
+              ai,
+              bi
+            );
+            points.push(pt);
+          }
+        }
+        points.push({ x: bx, y: by });
+        return points;
+      }
+
+      function strokeDodgePath(a, b, points) {
+        if (!points || points.length < 2) return;
+        var grad = linksCtx.createLinearGradient(a.x, a.y, b.x, b.y);
+        grad.addColorStop(0, a.color || '#ff7a18');
+        grad.addColorStop(1, b.color || '#ffd7a0');
+        linksCtx.strokeStyle = grad;
+        linksCtx.globalAlpha = 0.8;
+        linksCtx.lineWidth = 1.6;
+        linksCtx.lineJoin = 'round';
+        linksCtx.lineCap = 'round';
+        linksCtx.beginPath();
+        linksCtx.moveTo(points[0].x, points[0].y);
+        if (points.length === 2) {
+          linksCtx.lineTo(points[1].x, points[1].y);
+        } else {
+          for (var i = 1; i < points.length - 1; i++) {
+            var midX = (points[i].x + points[i + 1].x) * 0.5;
+            var midY = (points[i].y + points[i + 1].y) * 0.5;
+            linksCtx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
+          }
+          var last = points[points.length - 1];
+          linksCtx.lineTo(last.x, last.y);
+        }
+        linksCtx.stroke();
+      }
+
+      function drawDodgePair(i, j, drawn) {
+        var key = i < j ? i + ':' + j : j + ':' + i;
+        if (drawn[key]) return;
+        drawn[key] = 1;
+        var path = buildDodgePath(i, j);
+        if (!path) return;
+        strokeDodgePath(debris[i], debris[j], path);
+      }
+
+      function collectDodgePairs() {
+        var n = debris.length;
+        var drawn = {};
+        var pairs = [];
+        function add(i, j) {
+          if (i === j) return;
+          var key = i < j ? i + ':' + j : j + ':' + i;
+          if (drawn[key]) return;
+          drawn[key] = 1;
+          pairs.push({ i: i, j: j });
+        }
+        for (var k = n - 1; k >= 1; k--) add(k, k - 1);
+        for (var i = 0; i < n; i++) {
+          var a = debris[i];
+          if (!a || a.x == null) continue;
+          var bestJ = -1;
+          var bestD = Infinity;
+          for (var j = 0; j < n; j++) {
+            if (i === j) continue;
+            var b = debris[j];
+            if (!b || b.x == null) continue;
+            var dx = a.x - b.x;
+            var dy = a.y - b.y;
+            var dist2 = dx * dx + dy * dy;
+            if (dist2 < bestD) {
+              bestD = dist2;
+              bestJ = j;
+            }
+          }
+          if (bestJ >= 0) add(i, bestJ);
+        }
+        return pairs;
+      }
+
+      function nearestOnPath(px, py, path) {
+        var best = { dist: Infinity, x: px, y: py, nx: 0, ny: 1 };
+        for (var s = 0; s < path.length - 1; s++) {
+          var ax = path[s].x;
+          var ay = path[s].y;
+          var bx = path[s + 1].x;
+          var by = path[s + 1].y;
+          var abx = bx - ax;
+          var aby = by - ay;
+          var len2 = abx * abx + aby * aby;
+          var t = 0;
+          if (len2 > 1e-6) t = ((px - ax) * abx + (py - ay) * aby) / len2;
+          if (t < 0) t = 0;
+          else if (t > 1) t = 1;
+          var qx = ax + t * abx;
+          var qy = ay + t * aby;
+          var dist = Math.hypot(px - qx, py - qy);
+          if (dist < best.dist) {
+            var len = Math.hypot(abx, aby) || 1;
+            best = {
+              dist: dist,
+              x: qx,
+              y: qy,
+              nx: -aby / len,
+              ny: abx / len
+            };
+          }
+        }
+        return best;
+      }
+
+      function separateFromOtherPaths(path, others, ai, bi) {
+        var pad = 14;
+        var out = [];
+        for (var i = 0; i < path.length; i++) {
+          var pt = { x: path[i].x, y: path[i].y };
+          var isEnd = i === 0 || i === path.length - 1;
+          if (!isEnd) {
+            for (var o = 0; o < others.length; o++) {
+              var hit = nearestOnPath(pt.x, pt.y, others[o]);
+              if (hit.dist < pad && hit.dist > 1e-4) {
+                var push = (pad - hit.dist) / hit.dist;
+                var dx = pt.x - hit.x;
+                var dy = pt.y - hit.y;
+                var side = dx * hit.nx + dy * hit.ny;
+                if (side < 0) {
+                  pt.x -= hit.nx * (pad - hit.dist + 4);
+                  pt.y -= hit.ny * (pad - hit.dist + 4);
+                } else {
+                  pt.x += hit.nx * (pad - hit.dist + 4);
+                  pt.y += hit.ny * (pad - hit.dist + 4);
+                }
+              } else if (hit.dist <= 1e-4) {
+                pt.x += hit.nx * pad;
+                pt.y += hit.ny * pad;
+              }
+            }
+            pt = pushClear(pt, ai, bi);
+          }
+          out.push(pt);
+        }
+        return out;
+      }
+
+      function loopAroundOtherPaths(path, others, ai, bi) {
+        if (!others.length) return path;
+        var pad = 16;
+        var result = [path[0]];
+        for (var i = 1; i < path.length - 1; i++) {
+          var pt = path[i];
+          var conflict = null;
+          for (var o = 0; o < others.length; o++) {
+            var hit = nearestOnPath(pt.x, pt.y, others[o]);
+            if (hit.dist < pad) {
+              conflict = hit;
+              break;
+            }
+          }
+          if (!conflict) {
+            result.push(pt);
+            continue;
+          }
+          var cx = conflict.x;
+          var cy = conflict.y;
+          var startAng = Math.atan2(result[result.length - 1].y - cy, result[result.length - 1].x - cx);
+          var next = path[i + 1] || path[path.length - 1];
+          var endAng = Math.atan2(next.y - cy, next.x - cx);
+          var delta = normAngle(endAng - startAng);
+          var side = (pt.x - cx) * conflict.nx + (pt.y - cy) * conflict.ny;
+          if (side >= 0 && delta < 0) delta += Math.PI * 2;
+          if (side < 0 && delta > 0) delta -= Math.PI * 2;
+          if (Math.abs(delta) < Math.PI * 0.7) {
+            delta = side >= 0 ? Math.PI * 0.9 : -Math.PI * 0.9;
+          }
+          var rr = pad + 6;
+          var steps = 6;
+          for (var s = 1; s <= steps; s++) {
+            var ang = startAng + delta * (s / steps);
+            result.push(
+              pushClear(
+                {
+                  x: cx + Math.cos(ang) * rr,
+                  y: cy + Math.sin(ang) * rr
+                },
+                ai,
+                bi
+              )
+            );
+          }
+        }
+        result.push(path[path.length - 1]);
+        return separateFromOtherPaths(result, others, ai, bi);
+      }
+
+      function drawDodgeLinks() {
+        var pairs = collectDodgePairs();
+        for (var p = 0; p < pairs.length; p++) {
+          var path = buildDodgePath(pairs[p].i, pairs[p].j);
+          if (!path) continue;
+          strokeDodgePath(debris[pairs[p].i], debris[pairs[p].j], path);
+        }
+      }
+
+      function drawDodgeLinksMutual() {
+        var pairs = collectDodgePairs();
+        var done = [];
+        for (var p = 0; p < pairs.length; p++) {
+          var ai = pairs[p].i;
+          var bi = pairs[p].j;
+          var path = buildDodgePath(ai, bi);
+          if (!path) continue;
+          path = separateFromOtherPaths(path, done, ai, bi);
+          path = loopAroundOtherPaths(path, done, ai, bi);
+          path = separateFromOtherPaths(path, done, ai, bi);
+          done.push(path);
+          strokeDodgePath(debris[ai], debris[bi], path);
+        }
+      }
+
+      function drawLinks() {
+        clearLinks();
+        if (debris.length < 2) return;
+        if (linksAllOn()) {
+          var alpha = Math.max(0.12, 0.45 / Math.sqrt(debris.length));
+          var width = debris.length > 40 ? 0.8 : 1.1;
+          for (var i = 0; i < debris.length; i++) {
+            for (var j = i + 1; j < debris.length; j++) {
+              strokeLink(debris[i], debris[j], alpha, width);
+            }
+          }
+        } else {
+          if (linksPlanarOn()) drawPlanarLinks();
+          if (linksDodgeLinesOn()) {
+            drawDodgeLinksMutual();
+          } else if (linksDodgeOn()) {
+            drawDodgeLinks();
+          } else if (linksOn()) {
+            for (var k = debris.length - 1; k >= 1; k--) {
+              strokeLink(debris[k], debris[k - 1], 0.75, 1.5);
+            }
+          }
+          if (linksNearOn()) drawKLinks(false, 3);
+          if (linksNear5On()) drawKLinks(false, 5);
+          if (linksFarOn()) drawKLinks(true, 3);
+          if (linksFar1On()) drawKLinks(true, 1);
+          if (linksRand3On()) drawRandomLinks(randomLinkMap3, 0.65, 1.25);
+          if (linksRand1On()) drawRandomLinks(randomLinkMap1, 0.75, 1.4);
+        }
+        linksCtx.globalAlpha = 1;
+      }
+
+      function setBackground(mode) {
+        document.body.classList.remove('bg-black', 'bg-stars', 'bg-white');
+        document.body.classList.add('bg-' + mode);
+      }
+
+      document.querySelectorAll('input[name="bg"]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+          if (radio.checked) setBackground(radio.value);
+          field.focus();
+        });
+      });
+      setBackground('stars');
+
+      var BASE_HOLE = 72;
+      var holeSize = BASE_HOLE;
+      var DISK_FLAT = 0.26;
+      var MAX_TRAILS = 40;
+      var debris = [];
+      var trails = [];
+      var pulling = [];
+      var trailSpawnAcc = 0;
+      var cachedHole = { x: 0, y: 0 };
+      var colorTick = 0;
+      var mass = 1;
+      var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+      function trailsOn() {
+        return trailToggle.checked;
+      }
+
+      function applyHoleSize() {
+        holeSize = BASE_HOLE + Math.sqrt(Math.max(0, mass - 1)) * 14;
+        holeEl.style.setProperty('--dot', Math.max(18, holeSize * 0.38) + 'px');
+      }
+
+      function refreshHoleCenter() {
+        var r = holeEl.getBoundingClientRect();
+        cachedHole.x = r.left + r.width / 2;
+        cachedHole.y = r.top + r.height / 2;
+      }
+
+      /* Interstellar: flat accretion disk + lensed wrap orbiting around the hole */
+      function diskPos(angle, rad) {
+        var c = Math.cos(angle);
+        var s = Math.sin(angle);
+        var warp = s * rad * 0.12;
+        return {
+          x: cachedHole.x + c * rad + warp * 0.35,
+          y: cachedHole.y + s * rad * DISK_FLAT,
+          depth: s,
+          scale: 0.65 + 0.45 * ((s + 1) * 0.5)
+        };
+      }
+
+      /* Lensed half: spins around the hole (full vertical circle) */
+      function wrapPos(angle, rad) {
+        var c = Math.cos(angle);
+        var s = Math.sin(angle);
+        return {
+          x: cachedHole.x + c * rad * 0.92,
+          y: cachedHole.y + s * rad,
+          depth: c,
+          scale: 0.7 + 0.4 * ((c + 1) * 0.5)
+        };
+      }
+
+      function orbitPos(mode, angle, rad) {
+        return mode === 'wrap' ? wrapPos(angle, rad) : diskPos(angle, rad);
+      }
+
+      function placeCaret(x, y) {
+        caretX = x;
+        caretY = y;
+        caret.style.left = x + 'px';
+        caret.style.top = (y - 9) + 'px';
+      }
+
+      function randLetter() {
+        return letters.charAt((Math.random() * letters.length) | 0);
+      }
+
+      function flairColor(rad, maxRad) {
+        var t = Math.min(1, rad / Math.max(8, maxRad));
+        if (t < 0.35) return '#000000';
+        if (t < 0.55) return '#3a1800';
+        if (t < 0.75) return '#ff7a18';
+        if (t < 0.9) return '#ffd7a0';
+        return '#ffffff';
+      }
+
+      function clearTrails() {
+        for (var i = 0; i < trails.length; i++) {
+          if (trails[i].el.parentNode) trails[i].el.parentNode.removeChild(trails[i].el);
+        }
+        trails = [];
+        trailSpawnAcc = 0;
+      }
+
+      function stickDebris(ch) {
+        var mode = Math.random() < 0.5 ? 'disk' : 'wrap';
+        var maxRad = Math.max(48, holeSize * 1.15 + debris.length * 0.35);
+        var rad = mode === 'wrap'
+          ? holeSize * 0.45 + Math.random() * Math.max(28, holeSize * 0.85)
+          : holeSize * 0.35 + Math.random() * maxRad;
+        var color = flairColor(rad, maxRad + holeSize * 0.35);
+        var node = document.createElement('span');
+        node.className = 'bh-debris';
+        node.textContent = ch;
+        node.style.color = color;
+        layer.appendChild(node);
+        debris.push({
+          el: node,
+          mode: mode,
+          angle: Math.random() * Math.PI * 2,
+          rad: rad,
+          spin: (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 1.1),
+          pulsePhase: Math.random() * Math.PI * 2,
+          color: color,
+          x: null,
+          y: null
+        });
+        mass += 1;
+        applyHoleSize();
+      }
+
+      function spawnHoleTrail() {
+        if (!trailsOn()) return;
+        if (trails.length >= MAX_TRAILS) {
+          var old = trails.shift();
+          if (old.el.parentNode) old.el.parentNode.removeChild(old.el);
+        }
+        var angle = Math.random() * Math.PI * 2;
+        var mode = Math.random() < 0.5 ? 'disk' : 'wrap';
+        var dist = mode === 'wrap'
+          ? holeSize * 0.5 + Math.random() * (holeSize * 0.9)
+          : holeSize * 0.55 + Math.random() * (holeSize * 1.1);
+        var pos = orbitPos(mode, angle, dist);
+        var node = document.createElement('span');
+        node.className = 'letter-trail';
+        node.textContent = randLetter();
+        node.style.fontSize = Math.max(16, holeSize * 0.28) + 'px';
+        node.style.left = pos.x + 'px';
+        node.style.top = pos.y + 'px';
+        node.style.opacity = String(0.35 + 0.55 * ((pos.depth + 1) * 0.5));
+        layer.appendChild(node);
+        var start = Math.max(16, holeSize * 0.28);
+        trails.push({ el: node, size: start, start: start, wait: 1 + Math.random() });
+      }
+
+      function tickTrails(dt) {
+        if (!trailsOn()) {
+          if (trails.length) clearTrails();
+          return;
+        }
+        for (var i = trails.length - 1; i >= 0; i--) {
+          var tr = trails[i];
+          tr.wait -= dt;
+          if (tr.wait > 0) continue;
+          tr.wait = 1 + Math.random();
+          tr.size -= 3;
+          if (tr.size <= 0) {
+            if (tr.el.parentNode) tr.el.parentNode.removeChild(tr.el);
+            trails.splice(i, 1);
+          } else {
+            tr.el.style.fontSize = tr.size + 'px';
+            tr.el.textContent = randLetter();
+            tr.el.style.opacity = String(Math.max(0.2, tr.size / tr.start));
+          }
+        }
+      }
+
+      function pullLetter(el, ch) {
+        el.classList.add('sucked');
+        pulling.push({
+          el: el,
+          ch: ch,
+          startX: parseFloat(el.dataset.x),
+          startY: parseFloat(el.dataset.y),
+          t0: performance.now(),
+          dur: 2200
+        });
+      }
+
+      function tickPulls(now) {
+        var absorbR = Math.max(14, holeSize * 0.22);
+        var absorbR2 = absorbR * absorbR;
+        for (var i = pulling.length - 1; i >= 0; i--) {
+          var p = pulling[i];
+          var t = Math.min(1, (now - p.t0) / p.dur);
+          var ease = t * t * (3 - 2 * t);
+          var x = p.startX + (cachedHole.x - p.startX) * ease;
+          var y = p.startY + (cachedHole.y - p.startY) * ease;
+          p.el.style.left = x + 'px';
+          p.el.style.top = y + 'px';
+          var dx = cachedHole.x - x;
+          var dy = cachedHole.y - y;
+          if (dx * dx + dy * dy < absorbR2 || t >= 1) {
+            if (p.el.parentNode) p.el.parentNode.removeChild(p.el);
+            stickDebris(p.ch);
+            pulling.splice(i, 1);
+          }
+        }
+      }
+
+      function spawnLetter(ch, x, y) {
+        var el = document.createElement('span');
+        el.className = 'typed-letter';
+        el.textContent = ch;
+        el.dataset.x = String(x);
+        el.dataset.y = String(y);
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        layer.appendChild(el);
+        setTimeout(function () {
+          if (el.parentNode) pullLetter(el, ch);
+        }, 2000);
+
+        caretX += 11;
+        if (caretX > window.innerWidth - 20) {
+          caretX = 20;
+          caretY += 22;
+        }
+        placeCaret(caretX, caretY);
+      }
+
+      var last = performance.now();
+      function frame(now) {
+        var dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        refreshHoleCenter();
+        colorTick++;
+
+        var maxRad = Math.max(48, holeSize * 1.15 + debris.length * 0.35);
+        var recolor = (colorTick & 3) === 0;
+        var pulsing = pulseOn();
+        var tPulse = now * 0.004;
+        for (var i = 0; i < debris.length; i++) {
+          var d = debris[i];
+          d.angle += d.spin * dt;
+          var pos = orbitPos(d.mode, d.angle, d.rad);
+          d.x = pos.x;
+          d.y = pos.y;
+          var scale = pos.scale;
+          if (pulsing) {
+            scale *= 1.25 + 0.75 * Math.sin(tPulse + d.pulsePhase);
+          }
+          d.el.style.left = pos.x + 'px';
+          d.el.style.top = pos.y + 'px';
+          d.el.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
+          d.el.style.zIndex = String(20 + ((pos.depth + 1) * 10) | 0);
+          d.el.style.opacity = String(0.45 + 0.55 * ((pos.depth + 1) * 0.5));
+          if (recolor) {
+            d.color = flairColor(d.rad, maxRad);
+            d.el.style.color = d.color;
+          }
+        }
+
+        if (linksRand3On() || linksRand1On()) {
+          randomLinkAcc += dt;
+          if (
+            randomLinkAcc >= 1.2 ||
+            (linksRand3On() && randomLinkMap3.length !== debris.length) ||
+            (linksRand1On() && randomLinkMap1.length !== debris.length)
+          ) {
+            randomLinkAcc = 0;
+            refreshRandomLinks();
+          }
+        }
+        drawLinks();
+
+        if (trailsOn()) {
+          trailSpawnAcc += dt;
+          if (trailSpawnAcc >= 0.22) {
+            trailSpawnAcc = 0;
+            spawnHoleTrail();
+          }
+        }
+        tickTrails(dt);
+        tickPulls(now);
+        requestAnimationFrame(frame);
+      }
+
+      trailToggle.addEventListener('change', function () {
+        if (!trailsOn()) clearTrails();
+        field.focus();
+      });
+
+      function onLinkChange() {
+        if (!anyLinksOn()) clearLinks();
+        else if (linksRand3On() || linksRand1On()) refreshRandomLinks();
+        field.focus();
+      }
+      linkToggle.addEventListener('change', onLinkChange);
+      linkAllToggle.addEventListener('change', onLinkChange);
+      linkPlanarToggle.addEventListener('change', onLinkChange);
+      linkNearToggle.addEventListener('change', onLinkChange);
+      linkNear5Toggle.addEventListener('change', onLinkChange);
+      linkFarToggle.addEventListener('change', onLinkChange);
+      linkFar1Toggle.addEventListener('change', onLinkChange);
+      linkRand3Toggle.addEventListener('change', onLinkChange);
+      linkRand1Toggle.addEventListener('change', onLinkChange);
+      linkDodgeToggle.addEventListener('change', onLinkChange);
+      linkDodgeLinesToggle.addEventListener('change', onLinkChange);
+      pulseToggle.addEventListener('change', function () { field.focus(); });
+
+      field.addEventListener('mousedown', function (e) {
+        placeCaret(e.clientX, e.clientY);
+        field.focus();
+        e.preventDefault();
+      });
+
+      window.addEventListener('keydown', function (e) {
+        if (
+          e.target === trailToggle ||
+          e.target === linkToggle ||
+          e.target === linkAllToggle ||
+          e.target === linkPlanarToggle ||
+          e.target === linkNearToggle ||
+          e.target === linkNear5Toggle ||
+          e.target === linkFarToggle ||
+          e.target === linkFar1Toggle ||
+          e.target === linkRand3Toggle ||
+          e.target === linkRand1Toggle ||
+          e.target === linkDodgeToggle ||
+          e.target === linkDodgeLinesToggle ||
+          e.target === pulseToggle ||
+          (e.target && e.target.name === 'bg')
+        ) return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab') {
+          e.preventDefault();
+          return;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          caretX = 20;
+          caretY += 22;
+          placeCaret(caretX, caretY);
+          return;
+        }
+        if (e.key.length === 1) {
+          e.preventDefault();
+          spawnLetter(e.key, caretX, caretY);
+        }
+      });
+
+      window.addEventListener('resize', function () {
+        sizeLinksCanvas();
+        placeCaret(
+          Math.min(caretX, window.innerWidth - 20),
+          Math.min(caretY, window.innerHeight - 20)
+        );
+        refreshHoleCenter();
+      });
+
+      applyHoleSize();
+      placeCaret(caretX, caretY);
+      refreshHoleCenter();
+      field.focus();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
